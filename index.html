@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 1000px;
+      height: 200px;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .container {
+      position: relative;
+      width: 1000px;
+      height: 200px;
+    }
+
+    /* ── Contador + #SIHABRA en fila ────────────── */
+    #topBar {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: opacity 0.5s;
+      white-space: nowrap;
+    }
+
+    #countdown {
+      color: #ff0000;
+      font-family: 'Courier New', monospace;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
+    }
+
+    #sihabra {
+      color: #ff0000;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-shadow: 0 0 6px rgba(255, 0, 0, 0.5);
+    }
+
+    /* ── Track rojo termómetro ───────────────────── */
+    .track-wrap {
+      position: absolute;
+      top: 50%;
+      left:  90px;
+      right: 90px;
+      height: 8px;
+      transform: translateY(-50%);
+      background: transparent;
+      border-radius: 4px;
+      overflow: hidden;
+      transition: opacity 0.5s;
+    }
+
+    .track-fill {
+      position: absolute;
+      top: 0; right: 0;
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #ff2200, #ff6600);
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(255,60,0,0.7);
+    }
+
+    /* ── Mover (personaje 1) ─────────────────────── */
+    .mover {
+      position: absolute;
+      top: 50%;
+      left: 90px;
+      width: 180px;
+      height: 180px;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.3s;
+    }
+
+    #moverCanvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 180px; height: 180px;
+      display: block;
+    }
+
+    #sourceVideo {
+      position: absolute;
+      top: 0; left: 0;
+      width: 180px; height: 180px;
+      display: none;
+      object-fit: contain;
+    }
+
+    /* ── Destino: texto FLASH 2026 ───────────────── */
+    .destination {
+      position: absolute;
+      top: 50%;
+      right: 0;
+      width: 180px;
+      height: 180px;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.3s;
+    }
+
+    #destText {
+      color: #ff0000;
+      font-family: Impact, 'Arial Black', sans-serif;
+      font-size: 34px;
+      font-weight: 900;
+      text-align: center;
+      line-height: 1.1;
+      text-shadow: 0 0 16px #ff0000, 0 0 30px #ff4400;
+      white-space: nowrap;
+    }
+
+    /* ── Texto flash (oculto hasta colisión) ─────── */
+    #flashText {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ff0000;
+      font-family: Impact, 'Arial Black', sans-serif;
+      font-size: 80px;
+      font-weight: 900;
+      text-align: center;
+      white-space: nowrap;
+      text-shadow: 0 0 20px #ff0000, 0 0 50px #ff4400;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #flashText.visible {
+      /* 10 veces alternando, luego queda fijo en opacity:1 */
+      animation: blink 0.35s 10 alternate forwards;
+    }
+
+    @keyframes blink {
+      from { opacity: 1; }
+      to   { opacity: 0.05; }
+    }
+
+    /* ── Shake en colisión ───────────────────────── */
+    @keyframes shake {
+      0%   { transform: translate(-50%,-50%) translateX(0); }
+      15%  { transform: translate(-50%,-50%) translateX(-10px); }
+      30%  { transform: translate(-50%,-50%) translateX(10px); }
+      45%  { transform: translate(-50%,-50%) translateX(-7px); }
+      60%  { transform: translate(-50%,-50%) translateX(7px); }
+      75%  { transform: translate(-50%,-50%) translateX(-4px); }
+      100% { transform: translate(-50%,-50%) translateX(0); }
+    }
+
+    @keyframes shakeRight {
+      0%   { transform: translateY(-50%) translateX(0); }
+      15%  { transform: translateY(-50%) translateX(10px); }
+      30%  { transform: translateY(-50%) translateX(-10px); }
+      45%  { transform: translateY(-50%) translateX(7px); }
+      60%  { transform: translateY(-50%) translateX(-7px); }
+      75%  { transform: translateY(-50%) translateX(4px); }
+      100% { transform: translateY(-50%) translateX(0); }
+    }
+
+    .mover.shaking    { animation: shake      0.45s ease-in-out; }
+    .destination.shaking { animation: shakeRight 0.45s ease-in-out; }
+  </style>
+</head>
+<body>
+
+<div class="container" id="container">
+
+  <div id="topBar">
+    <div id="countdown">00:00:00</div>
+    <div id="sihabra">#SIHABRA</div>
+  </div>
+
+  <div class="track-wrap" id="trackWrap">
+    <div class="track-fill" id="trackFill"></div>
+  </div>
+
+  <div class="mover" id="mover">
+    <canvas id="moverCanvas" width="180" height="180"></canvas>
+    <video id="sourceVideo" autoplay loop muted playsinline>
+      <source src="1.mp4" type="video/mp4">
+    </video>
+  </div>
+
+  <div class="destination" id="dest">
+    <div id="destText">FLASH<br>2026</div>
+  </div>
+
+  <div id="flashText">FLASHHHHHH ELECTORALL 2026</div>
+
+</div>
+
+<script>
+  // ── CONFIG ─────────────────────────────────────────────────────
+  const TARGET_DATE = new Date('2026-06-07T17:00:00'); // fecha real de llegada
+
+  // Guarda la hora de inicio la primera vez; recargas usan siempre la misma
+  const STORAGE_KEY = 'widget_start_date';
+  if (!localStorage.getItem(STORAGE_KEY)) {
+    localStorage.setItem(STORAGE_KEY, new Date().toISOString());
+  }
+  const START_DATE = new Date(localStorage.getItem(STORAGE_KEY));
+  const GREEN_THRESHOLD = 45;
+  // ───────────────────────────────────────────────────────────────
+
+  const WIDGET_W  = 1000;
+  const ELEM      = 180;
+  const POS_START = ELEM / 2;             // 90
+  const POS_END   = WIDGET_W - ELEM / 2;  // 910
+  const POS_RANGE = POS_END - POS_START;  // 820
+
+  const video       = document.getElementById('sourceVideo');
+  const canvas      = document.getElementById('moverCanvas');
+  const ctx         = canvas.getContext('2d', { willReadFrequently: true });
+  const moverEl     = document.getElementById('mover');
+  const destEl      = document.getElementById('dest');
+  const fillEl      = document.getElementById('trackFill');
+  const trackWrap   = document.getElementById('trackWrap');
+  const countdownEl = document.getElementById('countdown');
+  const topBarEl    = document.getElementById('topBar');
+  const flashText   = document.getElementById('flashText');
+
+  let chromaOK = true;
+  let arrived  = false;
+
+  // ── Chroma key ─────────────────────────────────────────────────
+  function drawFrame() {
+    if (video.readyState >= 2) {
+      ctx.drawImage(video, 0, 0, ELEM, ELEM);
+      if (chromaOK) {
+        try {
+          const frame = ctx.getImageData(0, 0, ELEM, ELEM);
+          const d = frame.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i+1], b = d[i+2];
+            const greenness = g - Math.max(r, b);
+            if (greenness > GREEN_THRESHOLD) {
+              d[i+3] = Math.max(0, 255 - (greenness - GREEN_THRESHOLD) * 7);
+            }
+          }
+          ctx.putImageData(frame, 0, 0);
+        } catch(e) {
+          chromaOK = false;
+          canvas.style.display = 'none';
+          video.style.display  = 'block';
+        }
+      }
+    }
+    requestAnimationFrame(drawFrame);
+  }
+
+  video.play().catch(() => {});
+  video.addEventListener('canplay', () => video.play().catch(() => {}));
+  drawFrame();
+
+  // ── Formato tiempo ─────────────────────────────────────────────
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function formatRemaining(ms) {
+    if (ms <= 0) return '00:00:00';
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sc = s % 60;
+    return `${pad(h)}:${pad(m)}:${pad(sc)}`;
+  }
+
+  // ── Secuencia de colisión ──────────────────────────────────────
+  function triggerCollision() {
+    arrived = true;
+
+    // Ocultar todo de inmediato: track, barra, video y texto destino
+    trackWrap.style.opacity = '0';
+    topBarEl.style.opacity  = '0';
+    moverEl.style.opacity   = '0';
+    destEl.style.opacity    = '0';
+
+    // Mostrar solo el texto final
+    flashText.classList.add('visible');
+  }
+
+  // ── Loop principal ─────────────────────────────────────────────
+  function updateProgress() {
+    if (arrived) return;
+
+    const now      = new Date();
+    const total    = TARGET_DATE - START_DATE;
+    const elapsed  = now - START_DATE;
+    const progress = Math.min(Math.max(elapsed / total, 0), 1);
+
+    moverEl.style.left = (POS_START + progress * POS_RANGE) + 'px';
+    fillEl.style.width = ((1 - progress) * 100) + '%';
+    countdownEl.textContent = formatRemaining(TARGET_DATE - now);
+
+    if (progress >= 1) triggerCollision();
+  }
+
+  updateProgress();
+  setInterval(updateProgress, 1000);
+</script>
+
+</body>
+</html>
